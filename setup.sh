@@ -2,10 +2,12 @@
 
 sudo yum update -y
 
-sudo yum install -y git python3 python3-pip docker
+sudo yum install -y git python3 python3-pip
+sudo yum install -y docker
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -aG docker ec2-user
+sudo chmod 666 /var/run/docker.sock
 
 sudo ln -s /usr/bin/python3 /usr/bin/python
 sudo python3 -m pip install --upgrade pip

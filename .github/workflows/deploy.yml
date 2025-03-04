@@ -57,6 +57,14 @@ jobs:
          export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_REPO_FRONTEND }}"
          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
          export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
+
+         aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
+         aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+         aws configure set region us-east-1
+         aws configure list
+
+         echo "🔹 Checking if Docker is installed..."
+         docker --version || { echo "❌ Docker is NOT installed!"; exit 1; }
        
          echo "Checking installed versions..."
          git --version || echo "Git NOT installed"
@@ -106,13 +114,13 @@ jobs:
          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ECR_FRONTEND}
 
          echo "Building and pushing backend Docker image..."
-         cd /home/ec2-user/hottake/backend
+         cd /home/ec2-user/FastAPI-React/backend
          docker build -t hot-take-image .
          docker tag hot-take-image:latest ${AWS_ECR_BACKEND}:latest
          docker push ${AWS_ECR_BACKEND}:latest
 
          echo "Building and pushing frontend Docker image..."
-         cd /home/ec2-user/hottake/frontend
+         cd /home/ec2-user/FastAPI-React/frontend
          docker build -t hot-take-image-frontend .
          docker tag hot-take-image-frontend:latest ${AWS_ECR_FRONTEND}:latest
          docker push ${AWS_ECR_FRONTEND}:latest
