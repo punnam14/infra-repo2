@@ -47,8 +47,8 @@ jobs:
 
      - name: Deploy & Test Application
        env:
-         AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_REPO }}
-         AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_REPO_FRONTEND }}
+         AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
+         AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
          DATABASE_URL: ${{ secrets.DATABASE_URL }}
          OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
        run: |
