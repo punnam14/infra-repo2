@@ -134,12 +134,12 @@ jobs:
 
      - name: Deploy to QA EC2
        env:
-          AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
-          AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+         AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
+         AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
+         DATABASE_URL: ${{ secrets.DATABASE_URL }}
+         OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
+         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
        run: |
           eval "$(ssh-agent -s)"
           ssh-add github-actions.pem
