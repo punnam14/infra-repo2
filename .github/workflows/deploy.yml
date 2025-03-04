@@ -42,7 +42,7 @@ jobs:
     
      - name: Save Private Key for SSH
        run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > github-actions.pem
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > github-actions.pem
         chmod 600 github-actions.pem
 
      - name: Deploy & Test Application
