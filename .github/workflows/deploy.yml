@@ -130,4 +130,65 @@ jobs:
          docker push ${AWS_ECR_FRONTEND}:latest
 
          EOF
-         exit $EXIT_CODE
+        #  exit $EXIT_CODE
+
+     - name: Deploy to QA EC2
+       env:
+          AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
+          AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+       run: |
+          eval "$(ssh-agent -s)"
+          ssh-add github-actions.pem
+          
+          echo "🔹 Deploying Frontend to Public EC2..."
+          ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@3.239.67.128 << 'EOF'
+          export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_REPO }}"
+          export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_REPO_FRONTEND }}"
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+
+          aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
+          aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+          aws configure set region us-east-1
+
+          echo "🔹 Authenticating Docker with AWS ECR..."
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ECR_FRONTEND}
+
+          echo "🔹 Pulling the latest frontend image..."
+          docker pull ${AWS_ECR_FRONTEND}:latest
+
+          echo "🔹 Stopping old frontend container..."
+          docker rm -f frontend-container || true
+
+          echo "🔹 Running frontend container..."
+          docker run -d --name frontend-container -p 3000:3000 ${AWS_ECR_FRONTEND}:latest
+
+          EOF
+
+          echo "🔹 Deploying Backend to Private EC2..."
+          ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@172.31.134.64 << 'EOF'
+          export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND }}"
+
+          aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
+          aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+          aws configure set region us-east-1
+
+          echo "🔹 Authenticating Docker with AWS ECR..."
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ECR_BACKEND}
+
+          echo "🔹 Pulling the latest backend image..."
+          docker pull ${AWS_ECR_BACKEND}:latest
+
+          echo "🔹 Stopping old backend container..."
+          docker rm -f backend-container || true
+
+          echo "🔹 Running backend container..."
+          docker run -d --name backend-container -p 8000:8000 ${AWS_ECR_BACKEND}:latest
+
+          EOF
