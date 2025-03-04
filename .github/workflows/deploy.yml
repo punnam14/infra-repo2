@@ -12,14 +12,22 @@ jobs:
      - name: Checkout Repository
        uses: actions/checkout@v4
     
+     - name: Configure AWS CLI
+       run: |
+         aws configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
+         aws configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+         aws configure set region us-east-1
+         aws configure list
+    
      - name: Launch Temporary EC2 for Testing
        run: |
          TEMP_INSTANCE_ID=$(aws ec2 run-instances \
-          --image-id ami-05b10e08d247fb927\
+          --image-id ami-05b10e08d247fb927 \
           --instance-type t2.medium \
           --key-name github-actions \
           --security-group-ids sg-0f59a471f6a43bea7 \
           --user-data file://setup.sh \
+          --region us-east-1 \  # <-- Add this line
           --query 'Instances[0].InstanceId' \
           --output text)
          echo "TEMP_INSTANCE_ID=$TEMP_INSTANCE_ID" >> $GITHUB_ENV

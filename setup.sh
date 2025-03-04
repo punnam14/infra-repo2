@@ -23,10 +23,3 @@ sudo chown ec2-user:ec2-user test.db
 sudo chmod 666 test.db
 sudo mkdir -p .pytest_cache
 sudo chmod -R 777 .pytest_cache
-
-aws configure list || {
-    echo "AWS credentials not found, setting from environment variables..."
-    aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
-    aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
-    aws configure set region us-east-1
-}
