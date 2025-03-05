@@ -19,26 +19,26 @@ jobs:
          aws configure set region us-east-1
          aws configure list
     
-    #  - name: Launch Temporary EC2 for Testing
-    #    run: |
-    #      TEMP_INSTANCE_ID=$(aws ec2 run-instances \
-    #       --image-id ami-05b10e08d247fb927 \
-    #       --instance-type t2.medium \
-    #       --key-name github-actions \
-    #       --security-group-ids sg-0f59a471f6a43bea7 \
-    #       --user-data file://setup.sh \
-    #       --query 'Instances[0].InstanceId' \
-    #       --output text)
-    #      echo "TEMP_INSTANCE_ID=$TEMP_INSTANCE_ID" >> $GITHUB_ENV
+     - name: Launch Temporary EC2 for Testing
+       run: |
+         TEMP_INSTANCE_ID=$(aws ec2 run-instances \
+          --image-id ami-05b10e08d247fb927 \
+          --instance-type t2.medium \
+          --key-name github-actions \
+          --security-group-ids sg-0f59a471f6a43bea7 \
+          --user-data file://setup.sh \
+          --query 'Instances[0].InstanceId' \
+          --output text)
+         echo "TEMP_INSTANCE_ID=$TEMP_INSTANCE_ID" >> $GITHUB_ENV
        
-    #  - name: Wait for EC2 Instance to Start
-    #    run: |
-    #      sleep 60  # Wait 60 seconds for EC2 to boot
-    #      TEMP_IP=$(aws ec2 describe-instances \
-    #       --instance-ids ${{ env.TEMP_INSTANCE_ID }} \
-    #       --query 'Reservations[0].Instances[0].PublicIpAddress' \
-    #       --output text)
-    #      echo "TEMP_IP=$TEMP_IP" >> $GITHUB_ENV
+     - name: Wait for EC2 Instance to Start
+       run: |
+         sleep 60  # Wait 60 seconds for EC2 to boot
+         TEMP_IP=$(aws ec2 describe-instances \
+          --instance-ids ${{ env.TEMP_INSTANCE_ID }} \
+          --query 'Reservations[0].Instances[0].PublicIpAddress' \
+          --output text)
+         echo "TEMP_IP=$TEMP_IP" >> $GITHUB_ENV
     
      - name: Save Private Key for SSH
        run: |
@@ -50,92 +50,92 @@ jobs:
          scp -o StrictHostKeyChecking=no -i github-actions.pem github-actions.pem ec2-user@3.239.67.128:~/.ssh/github-actions.pem
          ssh -i github-actions.pem ec2-user@3.239.67.128 "chmod 600 ~/.ssh/github-actions.pem"
 
-    #  - name: Deploy & Test Application
-    #    env:
-    #      AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
-    #      AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
-    #      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-    #      OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
-    #      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    #      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    #    run: |
-    #      ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@${{ env.TEMP_IP }} << EOF
-    #      export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND_REPO }}"
-    #      export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_FRONTEND_REPO }}"
-    #      export DATABASE_URL="${{ secrets.DATABASE_URL }}"
-    #      export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
-    #      export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
-    #      export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+     - name: Deploy & Test Application
+       env:
+         AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
+         AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
+         DATABASE_URL: ${{ secrets.DATABASE_URL }}
+         OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
+         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+       run: |
+         ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@${{ env.TEMP_IP }} << EOF
+         export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND_REPO }}"
+         export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_FRONTEND_REPO }}"
+         export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+         export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
+         export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+         export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
 
-    #      aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
-    #      aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
-    #      aws configure set region us-east-1
-    #      aws configure list
+         aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
+         aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+         aws configure set region us-east-1
+         aws configure list
 
-    #      echo "🔹 Checking if Docker is installed..."
-    #      docker --version || { echo "❌ Docker is NOT installed!"; exit 1; }
+         echo "🔹 Checking if Docker is installed..."
+         docker --version || { echo "❌ Docker is NOT installed!"; exit 1; }
        
-    #      echo "Checking installed versions..."
-    #      git --version || echo "Git NOT installed"
-    #      python3 --version || echo "Python3 NOT installed"
-    #      pytest --version || echo "Pytest NOT installed"
+         echo "Checking installed versions..."
+         git --version || echo "Git NOT installed"
+         python3 --version || echo "Python3 NOT installed"
+         pytest --version || echo "Pytest NOT installed"
 
-    #      echo "🔹 Checking if env are set..."
-    #      echo "AWS_ECR_BACKEND=${AWS_ECR_BACKEND}"
-    #      echo "AWS_ECR_FRONTEND=${AWS_ECR_FRONTEND}"
-    #      echo "DATABASE_URL=${DATABASE_URL}"
-    #      echo "OPENCAGE_API_KEY=${OPENCAGE_API_KEY}"
+         echo "🔹 Checking if env are set..."
+         echo "AWS_ECR_BACKEND=${AWS_ECR_BACKEND}"
+         echo "AWS_ECR_FRONTEND=${AWS_ECR_FRONTEND}"
+         echo "DATABASE_URL=${DATABASE_URL}"
+         echo "OPENCAGE_API_KEY=${OPENCAGE_API_KEY}"
 
-    #      cd FastAPI-React
-    #      echo "Creating .env file..."
-    #      sudo tee .env > /dev/null <<EOT
-    #      DATABASE_URL=${DATABASE_URL}
-    #      OPENCAGE_API_KEY=${OPENCAGE_API_KEY}
-    #      EOT
+         cd FastAPI-React
+         echo "Creating .env file..."
+         sudo tee .env > /dev/null <<EOT
+         DATABASE_URL=${DATABASE_URL}
+         OPENCAGE_API_KEY=${OPENCAGE_API_KEY}
+         EOT
 
-    #      echo "Creating .env file in backend directory..."
-    #      sudo tee backend/.env > /dev/null <<EOT
-    #      DATABASE_URL=${DATABASE_URL}
-    #      OPENCAGE_API_KEY=${OPENCAGE_API_KEY}
-    #      EOT
+         echo "Creating .env file in backend directory..."
+         sudo tee backend/.env > /dev/null <<EOT
+         DATABASE_URL=${DATABASE_URL}
+         OPENCAGE_API_KEY=${OPENCAGE_API_KEY}
+         EOT
 
-    #      echo "Running tests..."
-    #      cd backend
-    #      sudo yum install -y sqlite
-    #      python3 -m pip install -r requirements.txt
-    #      PYTHONPATH=. python3 -m pytest -v
-    #      EXIT_CODE=$? 
-    #      echo "Pytest Exit Code: $EXIT_CODE"
+         echo "Running tests..."
+         cd backend
+         sudo yum install -y sqlite
+         python3 -m pip install -r requirements.txt
+         PYTHONPATH=. python3 -m pytest -v
+         EXIT_CODE=$? 
+         echo "Pytest Exit Code: $EXIT_CODE"
 
-    #      if [ "$EXIT_CODE" -ne 0 ]; then
-    #       echo "❌ Tests FAILED with exit code: $EXIT_CODE"
-    #         exit 1
-    #      else
-    #       echo "✅ Tests PASSED!"
-    #      fi
+         if [ "$EXIT_CODE" -ne 0 ]; then
+          echo "❌ Tests FAILED with exit code: $EXIT_CODE"
+            exit 1
+         else
+          echo "✅ Tests PASSED!"
+         fi
 
-    #      aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
-    #      aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
-    #      aws configure set region us-east-1
+         aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+         aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+         aws configure set region us-east-1
 
-    #      echo "Authenticating Docker with AWS ECR..."
-    #      aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ECR_BACKEND}
-    #      aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ECR_FRONTEND}
+         echo "Authenticating Docker with AWS ECR..."
+         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ECR_BACKEND}
+         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ECR_FRONTEND}
 
-    #      echo "Building and pushing backend Docker image..."
-    #      cd /home/ec2-user/FastAPI-React/backend
-    #      docker build -t hot-take-image .
-    #      docker tag hot-take-image:latest ${AWS_ECR_BACKEND}:latest
-    #      docker push ${AWS_ECR_BACKEND}:latest
+         echo "Building and pushing backend Docker image..."
+         cd /home/ec2-user/FastAPI-React/backend
+         docker build -t hot-take-image .
+         docker tag hot-take-image:latest ${AWS_ECR_BACKEND}:latest
+         docker push ${AWS_ECR_BACKEND}:latest
 
-    #      echo "Building and pushing frontend Docker image..."
-    #      cd /home/ec2-user/FastAPI-React/frontend
-    #      docker build -t hot-take-image-frontend .
-    #      docker tag hot-take-image-frontend:latest ${AWS_ECR_FRONTEND}:latest
-    #      docker push ${AWS_ECR_FRONTEND}:latest
+         echo "Building and pushing frontend Docker image..."
+         cd /home/ec2-user/FastAPI-React/frontend
+         docker build -t hot-take-image-frontend .
+         docker tag hot-take-image-frontend:latest ${AWS_ECR_FRONTEND}:latest
+         docker push ${AWS_ECR_FRONTEND}:latest
 
-    #      EOF
-        #  exit $EXIT_CODE
+         EOF
+         exit $EXIT_CODE
 
      - name: Deploy to QA EC2
        env:
