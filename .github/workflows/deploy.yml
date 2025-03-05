@@ -137,17 +137,17 @@ jobs:
          EOF
          exit $EXIT_CODE
     
-    #  - name: Terminate Temporary EC2 Instance
-    #    if: always()  
-    #    run: |
-    #      if [ -n "${{ env.TEMP_INSTANCE_ID }}" ]; then
-    #        echo "Terminating EC2 Instance: ${{ env.TEMP_INSTANCE_ID }}"
-    #        aws ec2 terminate-instances --instance-ids ${{ env.TEMP_INSTANCE_ID }}
-    #        aws ec2 wait instance-terminated --instance-ids ${{ env.TEMP_INSTANCE_ID }}
-    #        echo "✅ Temporary EC2 instance terminated."
-    #      else
-    #        echo "⚠️ TEMP_INSTANCE_ID is not set, skipping termination."
-    #      fi
+     - name: Terminate Temporary EC2 Instance
+       if: always()  
+       run: |
+         if [ -n "${{ env.TEMP_INSTANCE_ID }}" ]; then
+           echo "Terminating EC2 Instance: ${{ env.TEMP_INSTANCE_ID }}"
+           aws ec2 terminate-instances --instance-ids ${{ env.TEMP_INSTANCE_ID }}
+           aws ec2 wait instance-terminated --instance-ids ${{ env.TEMP_INSTANCE_ID }}
+           echo "✅ Temporary EC2 instance terminated."
+         else
+           echo "⚠️ TEMP_INSTANCE_ID is not set, skipping termination."
+         fi
 
      - name: Deploy to QA EC2
        env:
