@@ -45,6 +45,11 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > github-actions.pem
         chmod 600 github-actions.pem
 
+     - name: Copy SSH Key to Public EC2
+       run: |
+         scp -o StrictHostKeyChecking=no -i github-actions.pem github-actions.pem ec2-user@3.239.67.128:~/.ssh/github-actions.pem
+         ssh -i github-actions.pem ec2-user@3.239.67.128 "chmod 600 ~/.ssh/github-actions.pem"
+
     #  - name: Deploy & Test Application
     #    env:
     #      AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
@@ -171,7 +176,7 @@ jobs:
 
           echo "🔹 Deploying Backend to Private EC2..."
           echo "🔹 Connecting to Private EC2..."
-          ssh ec2-user@172.31.134.64 << 'EOF_Inner'
+          ssh -i ~/.ssh/github-actions.pem ec2-user@172.31.134.64 << 'EOF_Inner'
           export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND_REPO }}"
           export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_FRONTEND_REPO }}"
           export DATABASE_URL="${{ secrets.DATABASE_URL }}"
