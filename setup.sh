@@ -18,8 +18,8 @@ cd hottake/backend
 
 sudo python3 -m pip install -r requirements.txt
 sudo python3 -m pip install pytest
-sudo chown -R ec2-user:ec2-user /home/ec2-user/hottake/backend
-sudo chmod -R 775 /home/ec2-user/hottake/backend
+sudo chown -R ec2-user:ec2-user /home/ec2-user/FastAPI-React/backend
+sudo chmod -R 775 /home/ec2-user/FastAPI-React/backend
 sudo touch test.db
 sudo chown ec2-user:ec2-user test.db
 sudo chmod 666 test.db
