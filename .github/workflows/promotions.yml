@@ -20,39 +20,48 @@ jobs:
           aws configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
           aws configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           aws configure set region us-east-1
-      
-      - name: Check ECR Repository Secrets
+
+      - name: Verify AWS Credentials & ECR Setup
         run: |
-          echo "AWS_ECR_BACKEND_REPO=${{ secrets.AWS_ECR_BACKEND_REPO }}"
-          echo "AWS_ECR_FRONTEND_REPO=${{ secrets.AWS_ECR_FRONTEND_REPO }}"
-      
-      - name: Verify AWS Account Identity
-        run: |
+          echo "🔹 AWS_ECR_BACKEND_REPO=${{ secrets.AWS_ECR_BACKEND_REPO }}"
+          echo "🔹 AWS_ECR_FRONTEND_REPO=${{ secrets.AWS_ECR_FRONTEND_REPO }}"
+          echo "🔹 AWS Caller Identity:"
           aws sts get-caller-identity --query 'Account' --output text
-      
+
+      - name: Extract Release Version
+        id: extract_version
+        env:
+          RELEASE_VERSION: ${{ github.event.client_payload.release_tag }}
+        run: |
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "❌ ERROR: RELEASE_VERSION is empty!"
+            exit 1
+          fi
+          RC_TAG="rc${RELEASE_VERSION#v}"
+          echo "RC_TAG=$RC_TAG" >> $GITHUB_ENV
+          echo "✅ Release version: $RELEASE_VERSION → Tagging as: $RC_TAG"
+
       - name: Authenticate with AWS ECR
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 977099024018.dkr.ecr.us-east-1.amazonaws.com
 
-      - name: Extract Release Version
-        id: extract_version
-        run: |
-          RELEASE_VERSION=${{ github.event.client_payload.release_tag }}
-          RC_TAG="rc${RELEASE_VERSION#v}"
-          echo "RC_TAG=$RC_TAG" >> $GITHUB_ENV
-          echo "Release version: $RELEASE_VERSION → Tagging as: $RC_TAG"
-
       - name: Promote Backend Image in ECR
+        env:
+          AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
         run: |
-          aws ecr batch-get-image --repository-name ${{ secrets.AWS_ECR_BACKEND_REPO }} --image-ids imageTag=latest \
+          echo "Promoting backend image: $AWS_ECR_BACKEND to $RC_TAG"
+          aws ecr batch-get-image --repository-name $AWS_ECR_BACKEND --image-ids imageTag=latest \
             --query 'images[].imageManifest' --output text > manifest.json
-          aws ecr put-image --repository-name ${{ secrets.AWS_ECR_BACKEND_REPO }} --image-tag ${{ env.RC_TAG }} --image-manifest file://manifest.json
+          aws ecr put-image --repository-name $AWS_ECR_BACKEND --image-tag $RC_TAG --image-manifest file://manifest.json
 
       - name: Promote Frontend Image in ECR
+        env:
+          AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
         run: |
-          aws ecr batch-get-image --repository-name ${{ secrets.AWS_ECR_FRONTEND_REPO }} --image-ids imageTag=latest \
+          echo "Promoting frontend image: $AWS_ECR_FRONTEND to $RC_TAG"
+          aws ecr batch-get-image --repository-name $AWS_ECR_FRONTEND --image-ids imageTag=latest \
             --query 'images[].imageManifest' --output text > manifest.json
-          aws ecr put-image --repository-name ${{ secrets.AWS_ECR_FRONTEND_REPO }} --image-tag ${{ env.RC_TAG }} --image-manifest file://manifest.json
+          aws ecr put-image --repository-name $AWS_ECR_FRONTEND --image-tag $RC_TAG --image-manifest file://manifest.json
 
       - name: Save Private Key for SSH
         run: |
@@ -60,34 +69,43 @@ jobs:
           chmod 600 github-actions.pem
 
       - name: Deploy RC Version to RC Environment
+        env:
+          AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
+          AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          RC_TAG: ${{ env.RC_TAG }}
         run: |
-          echo "Deploying RC version to hottake-rc.hottake.pro..."
+          echo "🚀 Deploying RC version to hottake-rc.hottake.pro..."
 
           ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@54.163.221.190 << 'EOF'
-          export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND_REPO }}"
-          export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_FRONTEND_REPO }}"
-          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
-          export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
-          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
-          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_ECR_BACKEND="$AWS_ECR_BACKEND"
+          export AWS_ECR_FRONTEND="$AWS_ECR_FRONTEND"
+          export DATABASE_URL="$DATABASE_URL"
+          export OPENCAGE_API_KEY="$OPENCAGE_API_KEY"
+          export AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
+          export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
+          export RC_TAG="$RC_TAG"
 
-          aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
-          aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
           aws configure set region us-east-1
 
           echo "🔹 Creating Backend .env File..."
           sudo mkdir -p /backend
           sudo tee /backend/.env > /dev/null <<EOT
-          DATABASE_URL=${DATABASE_URL}
-          OPENCAGE_API_KEY=${OPENCAGE_API_KEY}
+          DATABASE_URL=$DATABASE_URL
+          OPENCAGE_API_KEY=$OPENCAGE_API_KEY
           EOT
           sudo chmod 600 /backend/.env
 
           echo "🔹 Pulling the RC Backend Image..."
-          docker pull ${AWS_ECR_BACKEND}:${{ env.RC_TAG }}
+          docker pull "$AWS_ECR_BACKEND:$RC_TAG"
 
           echo "🔹 Pulling the RC Frontend Image..."
-          docker pull ${AWS_ECR_FRONTEND}:${{ env.RC_TAG }}
+          docker pull "$AWS_ECR_FRONTEND:$RC_TAG"
 
           echo "🔹 Stopping Old Containers..."
           docker rm -f backend-container frontend-container || true
@@ -95,9 +113,9 @@ jobs:
           echo "🔹 Running RC Backend..."
           docker run -d --name backend-container -p 8000:8000 \
             --env-file /backend/.env \
-            ${AWS_ECR_BACKEND}:${{ env.RC_TAG }}
+            "$AWS_ECR_BACKEND:$RC_TAG"
 
           echo "🔹 Running RC Frontend..."
-          docker run -d --name frontend-container -p 3000:3000 ${AWS_ECR_FRONTEND}:${{ env.RC_TAG }}
+          docker run -d --name frontend-container -p 3000:3000 "$AWS_ECR_FRONTEND:$RC_TAG"
 
           EOF
