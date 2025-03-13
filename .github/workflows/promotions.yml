@@ -1,9 +1,8 @@
 name: RC Promotion
 
 on:
-  release:
-    types:
-      - created
+  repository_dispatch:
+    types: [trigger-rc-promotion]
 
 permissions:
   contents: read
@@ -25,7 +24,7 @@ jobs:
       - name: Extract Release Version
         id: extract_version
         run: |
-          RELEASE_VERSION=${{ github.event.release.tag_name }}
+          RELEASE_VERSION=${{ github.event.client_payload.release_tag }}
           RC_TAG="rc${RELEASE_VERSION#v}"
           echo "RC_TAG=$RC_TAG" >> $GITHUB_ENV
           echo "Release version: $RELEASE_VERSION → Tagging as: $RC_TAG"
