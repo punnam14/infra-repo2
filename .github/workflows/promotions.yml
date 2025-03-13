@@ -20,6 +20,19 @@ jobs:
           aws configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
           aws configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           aws configure set region us-east-1
+      
+      - name: Check ECR Repository Secrets
+        run: |
+          echo "AWS_ECR_BACKEND_REPO=${{ secrets.AWS_ECR_BACKEND_REPO }}"
+          echo "AWS_ECR_FRONTEND_REPO=${{ secrets.AWS_ECR_FRONTEND_REPO }}"
+      
+      - name: Verify AWS Account Identity
+        run: |
+          aws sts get-caller-identity --query 'Account' --output text
+      
+      - name: Authenticate with AWS ECR
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 977099024018.dkr.ecr.us-east-1.amazonaws.com
 
       - name: Extract Release Version
         id: extract_version
