@@ -40,12 +40,16 @@ jobs:
           echo "RC_TAG=rc${RELEASE_VERSION#v}" >> $GITHUB_ENV
           echo "✅ Release version: $RELEASE_VERSION → Tagging as: rc${RELEASE_VERSION#v}"
 
+      # ✅ Authenticate with AWS ECR (RIGHT BEFORE INTERACTING WITH ECR)
       - name: Authenticate with AWS ECR
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 977099024018.dkr.ecr.us-east-1.amazonaws.com
 
       - name: Promote Backend Image in ECR
         run: |
+          echo "🔹 Authenticating Docker with AWS ECR..."
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${{ secrets.AWS_ECR_BACKEND_REPO }}"
+
           echo "Promoting backend image: ${{ secrets.AWS_ECR_BACKEND_REPO }} to $RC_TAG"
           aws ecr batch-get-image --repository-name "${{ secrets.AWS_ECR_BACKEND_REPO }}" --image-ids imageTag=latest \
             --query 'images[].imageManifest' --output text > manifest.json
@@ -53,6 +57,9 @@ jobs:
 
       - name: Promote Frontend Image in ECR
         run: |
+          echo "🔹 Authenticating Docker with AWS ECR..."
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${{ secrets.AWS_ECR_FRONTEND_REPO }}"
+
           echo "Promoting frontend image: ${{ secrets.AWS_ECR_FRONTEND_REPO }} to $RC_TAG"
           aws ecr batch-get-image --repository-name "${{ secrets.AWS_ECR_FRONTEND_REPO }}" --image-ids imageTag=latest \
             --query 'images[].imageManifest' --output text > manifest.json
@@ -79,6 +86,10 @@ jobs:
           aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
           aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
           aws configure set region us-east-1
+
+          echo "🔹 Authenticating Docker with AWS ECR..."
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$AWS_ECR_BACKEND"
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$AWS_ECR_FRONTEND"
 
           echo "🔹 Creating Backend .env File..."
           sudo mkdir -p /backend
