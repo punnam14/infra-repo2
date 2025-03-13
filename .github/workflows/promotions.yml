@@ -1,0 +1,91 @@
+name: RC Promotion
+
+on:
+  release:
+    types:
+      - created
+
+permissions:
+  contents: read
+
+jobs:
+  promote-rc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Infra Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS CLI
+        run: |
+          aws configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws configure set region us-east-1
+
+      - name: Extract Release Version
+        id: extract_version
+        run: |
+          RELEASE_VERSION=${{ github.event.release.tag_name }}
+          RC_TAG="rc${RELEASE_VERSION#v}"
+          echo "RC_TAG=$RC_TAG" >> $GITHUB_ENV
+          echo "Release version: $RELEASE_VERSION → Tagging as: $RC_TAG"
+
+      - name: Promote Backend Image in ECR
+        run: |
+          aws ecr batch-get-image --repository-name ${{ secrets.AWS_ECR_BACKEND_REPO }} --image-ids imageTag=latest \
+            --query 'images[].imageManifest' --output text > manifest.json
+          aws ecr put-image --repository-name ${{ secrets.AWS_ECR_BACKEND_REPO }} --image-tag ${{ env.RC_TAG }} --image-manifest file://manifest.json
+
+      - name: Promote Frontend Image in ECR
+        run: |
+          aws ecr batch-get-image --repository-name ${{ secrets.AWS_ECR_FRONTEND_REPO }} --image-ids imageTag=latest \
+            --query 'images[].imageManifest' --output text > manifest.json
+          aws ecr put-image --repository-name ${{ secrets.AWS_ECR_FRONTEND_REPO }} --image-tag ${{ env.RC_TAG }} --image-manifest file://manifest.json
+
+      - name: Save Private Key for SSH
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > github-actions.pem
+          chmod 600 github-actions.pem
+
+      - name: Deploy RC Version to RC Environment
+        run: |
+          echo "Deploying RC version to hottake-rc.hottake.pro..."
+
+          ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@54.163.221.190 << 'EOF'
+          export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND_REPO }}"
+          export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_FRONTEND_REPO }}"
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+
+          aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
+          aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
+          aws configure set region us-east-1
+
+          echo "🔹 Creating Backend .env File..."
+          sudo mkdir -p /backend
+          sudo tee /backend/.env > /dev/null <<EOT
+          DATABASE_URL=${DATABASE_URL}
+          OPENCAGE_API_KEY=${OPENCAGE_API_KEY}
+          EOT
+          sudo chmod 600 /backend/.env
+
+          echo "🔹 Pulling the RC Backend Image..."
+          docker pull ${AWS_ECR_BACKEND}:${{ env.RC_TAG }}
+
+          echo "🔹 Pulling the RC Frontend Image..."
+          docker pull ${AWS_ECR_FRONTEND}:${{ env.RC_TAG }}
+
+          echo "🔹 Stopping Old Containers..."
+          docker rm -f backend-container frontend-container || true
+
+          echo "🔹 Running RC Backend..."
+          docker run -d --name backend-container -p 8000:8000 \
+            --env-file /backend/.env \
+            ${AWS_ECR_BACKEND}:${{ env.RC_TAG }}
+
+          echo "🔹 Running RC Frontend..."
+          docker run -d --name frontend-container -p 3000:3000 ${AWS_ECR_FRONTEND}:${{ env.RC_TAG }}
+
+          EOF
