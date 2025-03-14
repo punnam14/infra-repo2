@@ -66,6 +66,8 @@ jobs:
           export AWS_SECRET_ACCESS_KEY="${{secrets.AWS_SECRET_ACCESS_KEY}}"
           export RC_TAG="${{secrets.RC_TAG}}"
 
+          echo ${{secrets.RC_TAG}}
+
           aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
           aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
           aws configure set region us-east-1
