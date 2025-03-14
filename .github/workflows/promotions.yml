@@ -16,6 +16,16 @@ jobs:
       - name: Checkout Infra Repository
         uses: actions/checkout@v4
 
+      - name: Verify AWS Credentials & ECR Setup
+        run: |
+          echo "🔹 Checking if AWS Secrets Are Set..."
+          echo "🔹 AWS_ECR_BACKEND_REPO Length: ${#AWS_ECR_BACKEND_REPO}"
+          echo "🔹 AWS_ECR_FRONTEND_REPO Length: ${#AWS_ECR_FRONTEND_REPO}"
+          echo "🔹 AWS_ACCESS_KEY_ID Length: ${#AWS_ACCESS_KEY_ID}"
+          echo "🔹 AWS_SECRET_ACCESS_KEY Length: ${#AWS_SECRET_ACCESS_KEY}"
+          echo "🔹 AWS Caller Identity:"
+          aws sts get-caller-identity --query 'Account' --output text || echo "🔴 AWS CREDENTIALS INVALID"
+
       # 2) Configure AWS CLI in GitHub runner
       - name: Configure AWS CLI
         run: |
