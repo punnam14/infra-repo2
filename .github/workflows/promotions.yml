@@ -24,7 +24,7 @@ jobs:
           aws configure set region us-east-1
           aws configure list
 
-      # 3) Verify AWS credentials & ECR setup
+      # 3) Verify AWS Credentials & ECR Setup
       - name: Verify AWS Credentials & ECR Setup
         run: |
           echo "🔹 AWS_ECR_BACKEND_REPO=${{ secrets.AWS_ECR_BACKEND_REPO }}"
@@ -32,7 +32,7 @@ jobs:
           echo "🔹 AWS Caller Identity:"
           aws sts get-caller-identity --query 'Account' --output text || echo "🔴 AWS CREDENTIALS INVALID"
 
-      # 4) Extract release version
+      # 4) Extract Release Version (RC_TAG FIX INCLUDED)
       - name: Extract Release Version
         id: extract_version
         run: |
@@ -44,7 +44,7 @@ jobs:
           echo "RELEASE_VERSION=${RELEASE_VERSION}" >> $GITHUB_ENV
           echo "RC_TAG=rc${RELEASE_VERSION#v}" >> $GITHUB_ENV
           echo "✅ Release version: $RELEASE_VERSION → Tagging as: rc${RELEASE_VERSION#v}"
-
+          
       # 5) Save SSH key to connect to EC2
       - name: Save Private Key for SSH
         run: |
@@ -53,56 +53,74 @@ jobs:
 
       # 6) SSH into EC2 & Promote ECR Images
       - name: SSH into EC2 & Promote ECR Images
+        env:
+          AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
+          AWS_ECR_FRONTEND: ${{ secrets.AWS_ECR_FRONTEND_REPO }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENCAGE_API_KEY: ${{ secrets.OPENCAGE_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          RC_TAG: ${{ env.RC_TAG }}
         run: |
           echo "🚀 Connecting to EC2 and promoting images in ECR..."
-          
-          ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@54.163.221.190 << 'EOF'
-          
-          # 1) DEBUG: Print Environment Variables Inside EC2
-          echo "🔹 Checking Environment Variables Inside EC2..."
-          echo "AWS_ECR_BACKEND=${{ secrets.AWS_ECR_BACKEND_REPO }}"
-          echo "AWS_ECR_FRONTEND=${{ secrets.AWS_ECR_FRONTEND_REPO }}"
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          echo "RC_TAG=${{ env.RC_TAG }}"
 
-          # 2) SETUP AWS CREDENTIALS (Match Nightly Deployment)
+          ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@54.163.221.190 << EOF
+
+          # Ensure environment variables are available
+          export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND_REPO }}"
+          export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_FRONTEND_REPO }}"
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export RC_TAG="${{ env.RC_TAG }}"
+
+          # Debug: Print environment variables inside EC2
+          echo "🔹 Checking Environment Variables Inside EC2..."
+          echo "AWS_ECR_BACKEND=\$AWS_ECR_BACKEND"
+          echo "AWS_ECR_FRONTEND=\$AWS_ECR_FRONTEND"
+          echo "RC_TAG=\$RC_TAG"
+          echo "AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY_ID:0:4}********"
+          echo "AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_ACCESS_KEY:0:4}********"
+
+          # Ensure AWS credentials are set
           echo "🔹 Configuring AWS Credentials in EC2..."
-          aws configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          aws configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws configure set aws_access_key_id "\$AWS_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "\$AWS_SECRET_ACCESS_KEY"
           aws configure set region us-east-1
           aws configure list || { echo "🔴 AWS CREDENTIALS INVALID"; exit 1; }
 
-          # 3) AUTHENTICATE WITH ECR
+          # Authenticate with AWS ECR
           echo "🔹 Authenticating Docker with AWS ECR inside EC2..."
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${{ secrets.AWS_ECR_BACKEND_REPO }}" || exit 1
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${{ secrets.AWS_ECR_FRONTEND_REPO }}" || exit 1
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "\$AWS_ECR_BACKEND" || exit 1
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "\$AWS_ECR_FRONTEND" || exit 1
 
-          # 4) PROMOTE BACKEND IMAGE
-          echo "🔹 Promoting backend image: ${{ secrets.AWS_ECR_BACKEND_REPO }} → $RC_TAG"
-          aws ecr batch-get-image --repository-name "${{ secrets.AWS_ECR_BACKEND_REPO }}" --image-ids imageTag=latest \
+          # Promote backend image
+          echo "🔹 Promoting backend image: \$AWS_ECR_BACKEND → \$RC_TAG"
+          aws ecr batch-get-image --repository-name "\$AWS_ECR_BACKEND" --image-ids imageTag=latest \
             --query 'images[].imageManifest' --output text > manifest.json || { echo "Backend image not found"; exit 1; }
 
-          aws ecr put-image --repository-name "${{ secrets.AWS_ECR_BACKEND_REPO }}" --image-tag "$RC_TAG" --image-manifest file://manifest.json
+          aws ecr put-image --repository-name "\$AWS_ECR_BACKEND" --image-tag "\$RC_TAG" --image-manifest file://manifest.json
 
-          # 5) PROMOTE FRONTEND IMAGE
-          echo "🔹 Promoting frontend image: ${{ secrets.AWS_ECR_FRONTEND_REPO }} → $RC_TAG"
-          aws ecr batch-get-image --repository-name "${{ secrets.AWS_ECR_FRONTEND_REPO }}" --image-ids imageTag=latest \
+          # Promote frontend image
+          echo "🔹 Promoting frontend image: \$AWS_ECR_FRONTEND → \$RC_TAG"
+          aws ecr batch-get-image --repository-name "\$AWS_ECR_FRONTEND" --image-ids imageTag=latest \
             --query 'images[].imageManifest' --output text > manifest.json || { echo "Frontend image not found"; exit 1; }
 
-          aws ecr put-image --repository-name "${{ secrets.AWS_ECR_FRONTEND_REPO }}" --image-tag "$RC_TAG" --image-manifest file://manifest.json
+          aws ecr put-image --repository-name "\$AWS_ECR_FRONTEND" --image-tag "\$RC_TAG" --image-manifest file://manifest.json
 
-          # 6) DEPLOY CONTAINERS
+          # Stop old containers
           echo "🔹 Stopping Old Containers..."
           docker rm -f backend-container frontend-container || true
 
+          # Pull & run backend container
           echo "🔹 Pulling and Running Backend Container..."
-          docker pull "${{ secrets.AWS_ECR_BACKEND_REPO }}:$RC_TAG" || { echo "Backend image pull failed"; exit 1; }
-          docker run -d --name backend-container -p 8000:8000 "${{ secrets.AWS_ECR_BACKEND_REPO }}:$RC_TAG"
+          docker pull "\$AWS_ECR_BACKEND:\$RC_TAG" || { echo "Backend image pull failed"; exit 1; }
+          docker run -d --name backend-container -p 8000:8000 "\$AWS_ECR_BACKEND:\$RC_TAG"
 
+          # Pull & run frontend container
           echo "🔹 Pulling and Running Frontend Container..."
-          docker pull "${{ secrets.AWS_ECR_FRONTEND_REPO }}:$RC_TAG" || { echo "Frontend image pull failed"; exit 1; }
-          docker run -d --name frontend-container -p 3000:3000 "${{ secrets.AWS_ECR_FRONTEND_REPO }}:$RC_TAG"
+          docker pull "\$AWS_ECR_FRONTEND:\$RC_TAG" || { echo "Frontend image pull failed"; exit 1; }
+          docker run -d --name frontend-container -p 3000:3000 "\$AWS_ECR_FRONTEND:\$RC_TAG"
 
           EOF
