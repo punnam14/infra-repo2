@@ -58,15 +58,15 @@ jobs:
           echo "🚀 Connecting to EC2 and promoting images in ECR..."
           
           ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@54.163.221.190 << 'EOF'
-          export AWS_ECR_BACKEND="${{secrets.AWS_ECR_BACKEND}}"
-          export AWS_ECR_FRONTEND="${{secrets.AWS_ECR_FRONTEND}}"
-          export DATABASE_URL="${{secrets.DATABASE_URL}}"
-          export OPENCAGE_API_KEY="${{secrets.OPENCAGE_API_KEY}}"
-          export AWS_ACCESS_KEY_ID="${{secrets.AWS_ACCESS_KEY_ID}}"
-          export AWS_SECRET_ACCESS_KEY="${{secrets.AWS_SECRET_ACCESS_KEY}}"
-          export RC_TAG="${{secrets.RC_TAG}}"
+          export AWS_ECR_BACKEND="${{ secrets.AWS_ECR_BACKEND }}"
+          export AWS_ECR_FRONTEND="${{ secrets.AWS_ECR_FRONTEND }}"
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          export OPENCAGE_API_KEY="${{ secrets.OPENCAGE_API_KEY }}"
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export RC_TAG="${{ secrets.RC_TAG }}"
 
-          echo ${{secrets.RC_TAG}}
+          echo ${{ secrets.RC_TAG }}
 
           aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}"
           aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}"
