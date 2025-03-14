@@ -16,16 +16,6 @@ jobs:
       - name: Checkout Infra Repository
         uses: actions/checkout@v4
 
-      - name: Verify AWS Credentials & ECR Setup
-        run: |
-          echo "🔹 Checking if AWS Secrets Are Set..."
-          echo "🔹 AWS_ECR_BACKEND_REPO Length: ${#AWS_ECR_BACKEND_REPO}"
-          echo "🔹 AWS_ECR_FRONTEND_REPO Length: ${#AWS_ECR_FRONTEND_REPO}"
-          echo "🔹 AWS_ACCESS_KEY_ID Length: ${#AWS_ACCESS_KEY_ID}"
-          echo "🔹 AWS_SECRET_ACCESS_KEY Length: ${#AWS_SECRET_ACCESS_KEY}"
-          echo "🔹 AWS Caller Identity:"
-          aws sts get-caller-identity --query 'Account' --output text || echo "🔴 AWS CREDENTIALS INVALID"
-
       # 2) Configure AWS CLI in GitHub runner
       - name: Configure AWS CLI
         run: |
@@ -36,9 +26,10 @@ jobs:
       # 3) Verify AWS credentials & ECR setup
       - name: Verify AWS Credentials & ECR Setup
         run: |
-          echo "🔹 AWS_ECR_BACKEND_REPO=${{ secrets.AWS_ECR_BACKEND_REPO }}"
-          echo "🔹 AWS_ECR_FRONTEND_REPO=${{ secrets.AWS_ECR_FRONTEND_REPO }}"
-          echo "🔹 AWS Caller Identity:"
+          echo "🔹 AWS_ECR_BACKEND_REPO Length: ${#AWS_ECR_BACKEND_REPO}"
+          echo "🔹 AWS_ECR_FRONTEND_REPO Length: ${#AWS_ECR_FRONTEND_REPO}"
+          echo "🔹 AWS_ACCESS_KEY_ID Length: ${#AWS_ACCESS_KEY_ID}"
+          echo "🔹 AWS_SECRET_ACCESS_KEY Length: ${#AWS_SECRET_ACCESS_KEY}"
           aws sts get-caller-identity --query 'Account' --output text || echo "🔴 AWS CREDENTIALS INVALID"
 
       # 4) Extract release version
@@ -60,7 +51,15 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > github-actions.pem
           chmod 600 github-actions.pem
 
-      # 6) SSH into EC2 & Promote ECR Images
+      # 6) Verify Secrets Before SSH (Safe Debugging)
+      - name: Verify Secrets Before SSH
+        run: |
+          [[ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]] && echo "🔴 AWS_ACCESS_KEY_ID is EMPTY!" || echo "✅ AWS_ACCESS_KEY_ID is SET!"
+          [[ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]] && echo "🔴 AWS_SECRET_ACCESS_KEY is EMPTY!" || echo "✅ AWS_SECRET_ACCESS_KEY is SET!"
+          [[ -z "${{ secrets.AWS_ECR_BACKEND_REPO }}" ]] && echo "🔴 AWS_ECR_BACKEND_REPO is EMPTY!" || echo "✅ AWS_ECR_BACKEND_REPO is SET!"
+          [[ -z "${{ secrets.AWS_ECR_FRONTEND_REPO }}" ]] && echo "🔴 AWS_ECR_FRONTEND_REPO is EMPTY!" || echo "✅ AWS_ECR_FRONTEND_REPO is SET!"
+
+      # 7) SSH into EC2 & Promote ECR Images
       - name: SSH into EC2 & Promote ECR Images
         env:
           AWS_ECR_BACKEND: ${{ secrets.AWS_ECR_BACKEND_REPO }}
@@ -73,16 +72,8 @@ jobs:
         run: |
           echo "🚀 Connecting to EC2 and promoting images in ECR..."
           
-          ssh -o StrictHostKeyChecking=no -i github-actions.pem \
-            AWS_ECR_BACKEND="${AWS_ECR_BACKEND}" \
-            AWS_ECR_FRONTEND="${AWS_ECR_FRONTEND}" \
-            DATABASE_URL="${DATABASE_URL}" \
-            OPENCAGE_API_KEY="${OPENCAGE_API_KEY}" \
-            AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-            AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-            RC_TAG="${RC_TAG}" \
-            ec2-user@54.163.221.190 << 'EOF'
-          
+          ssh -o StrictHostKeyChecking=no -i github-actions.pem ec2-user@54.163.221.190 << 'EOF'
+
           ################################################################################
           # 1) DEBUG: Print environment variables inside EC2
           ################################################################################
