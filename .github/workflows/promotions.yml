@@ -63,8 +63,8 @@ jobs:
           echo "AWS_ECR_BACKEND=${{ secrets.AWS_ECR_BACKEND_REPO }}"
           echo "AWS_ECR_FRONTEND=${{ secrets.AWS_ECR_FRONTEND_REPO }}"
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID:0:4 }}********"
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY:0:4 }}********"
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
           echo "RC_TAG=${{ env.RC_TAG }}"
 
           # 2) SETUP AWS CREDENTIALS (Match Nightly Deployment)
